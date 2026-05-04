@@ -49,8 +49,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsgo -p tsconfig.json --noEmit",
-    "types": "tsc -p tsconfig.json --emitDeclarationOnly",
-    "compile": "tsc -p tsconfig.json",
+    "types": "tsgo -p tsconfig.json --emitDeclarationOnly",
+    "compile": "tsgo -p tsconfig.json",
     "prepare": "pnpm compile",
     "markdansi": "tsx src/cli.ts"
   },
@@ -69,8 +69,8 @@
     "@types/mdast": "^4.0.4",
     "@types/node": "^25.6.0",
     "@vitest/coverage-v8": "^4.1.5",
-    "oxfmt": "^0.46.0",
-    "oxlint": "^1.61.0",
+    "oxfmt": "^0.47.0",
+    "oxlint": "^1.62.0",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.5"
