@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- CLI: support `markdansi file.md` positional input files (#3, thanks @risenowrise).
+
 ## 0.2.1 (2026-01-10)
 
 - Fix table padding math so headers/cells don't truncate early.
