@@ -9,6 +9,7 @@ import type {
   Root,
   Table,
 } from "mdast";
+import sliceAnsi from "slice-ansi";
 import stringWidth from "string-width";
 import stripAnsi from "strip-ansi";
 import { hyperlinkSupported, osc8 } from "./hyperlink.js";
@@ -767,50 +768,19 @@ function renderTable(node: Table, ctx: RenderContext): string[] {
 function truncateCell(text: string, width: number, ellipsis: string): string {
   if (stringWidth(text) <= width) return text;
   const ellipsisWidth = stringWidth(ellipsis);
-  if (width <= ellipsisWidth) return ellipsis.slice(0, width);
+  if (width <= ellipsisWidth) return sliceCellContent(ellipsis, width);
+  return `${sliceCellContent(text, width - ellipsisWidth)}${ellipsis}`;
+}
 
-  // Truncate by visible width while preserving ANSI escape sequences. Slicing
-  // by code units (the previous behavior) counted the invisible escape bytes
-  // toward the width and could cut mid-sequence, dropping the closing reset and
-  // leaking the style into the rest of the row. It also mismeasured wide (CJK)
-  // characters.
-  const budget = width - ellipsisWidth;
-  const chars = [...text];
-  let result = "";
-  let used = 0;
-  let hasAnsi = false;
-  for (let i = 0; i < chars.length; i++) {
-    const ch = chars[i];
-    if (ch === undefined) break;
-    if (ch.charCodeAt(0) === 0x1b) {
-      // Copy the whole CSI escape sequence (ESC [ … final-byte) without cost.
-      let seq = ch;
-      i++;
-      const intro = chars[i];
-      if (intro !== undefined) {
-        seq += intro;
-        i++;
-      }
-      while (i < chars.length) {
-        const c = chars[i];
-        if (c === undefined) break;
-        seq += c;
-        i++;
-        const code = c.charCodeAt(0);
-        if (code >= 0x40 && code <= 0x7e) break;
-      }
-      i--;
-      result += seq;
-      hasAnsi = true;
-      continue;
-    }
-    const chWidth = stringWidth(ch);
-    if (used + chWidth > budget) break;
-    result += ch;
-    used += chWidth;
+function sliceCellContent(text: string, width: number): string {
+  let end = Math.max(0, width);
+  let sliced = sliceAnsi(text, 0, end);
+  // slice-ansi owns ANSI/OSC/grapheme boundaries; clamp with Markdansi's width metric.
+  while (end > 0 && stringWidth(sliced) > width) {
+    end -= 1;
+    sliced = sliceAnsi(text, 0, end);
   }
-  // Close any style left open by the truncation so it cannot leak past the cell.
-  return `${result}${ellipsis}${hasAnsi ? "\u001b[0m" : ""}`;
+  return sliced;
 }
 
 function wrapCodeLine(text: string, width: number): string[] {
