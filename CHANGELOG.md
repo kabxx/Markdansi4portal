@@ -1,5 +1,7 @@
 # Changelog
 
+## 0.3.1 - Unreleased
+
 ## 0.3.0 (2026-06-10)
 
 - CLI: support `markdansi file.md` positional input files (#3, thanks @risenowrise).
