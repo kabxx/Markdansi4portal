@@ -48,28 +48,23 @@
     "lint": "rm -rf dist coverage && pnpm format:check && oxlint --deny-warnings src test",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsgo -p tsconfig.json --noEmit",
-    "types": "tsgo -p tsconfig.json --emitDeclarationOnly",
-    "compile": "tsgo -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "types": "tsc -p tsconfig.json --emitDeclarationOnly",
+    "compile": "tsc -p tsconfig.json",
     "prepare": "pnpm compile",
     "markdansi": "tsx src/cli.ts"
   },
   "dependencies": {
     "chalk": "^5.6.2",
-    "mdast-util-from-markdown": "^2.0.3",
-    "mdast-util-gfm": "^3.1.0",
-    "micromark": "^4.0.2",
-    "micromark-extension-gfm": "^3.0.0",
-    "micromark-util-combine-extensions": "^2.0.1",
+    "decode-named-character-reference": "^1.3.0",
+    "marked": "^18.0.5",
     "slice-ansi": "^9.0.0",
     "string-width": "^8.2.1",
     "strip-ansi": "^7.2.0",
     "supports-hyperlinks": "^4.4.0"
   },
   "devDependencies": {
-    "@types/mdast": "^4.0.4",
     "@types/node": "^25.6.0",
-    "@typescript/native-preview": "7.0.0-dev.20260503.1",
     "@vitest/coverage-v8": "^4.1.5",
     "oxfmt": "^0.47.0",
     "oxlint": "^1.62.0",
@@ -79,10 +74,5 @@
   },
   "engines": {
     "node": ">=22"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
   }
 }

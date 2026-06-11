@@ -4,7 +4,8 @@ Goal: Tiny, dependency‑light Markdown → ANSI renderer & CLI for Node ≥22, 
 
 ## Core Dependencies (runtime)
 
-- `micromark`, `micromark-extension-gfm`, `micromark-util-combine-extensions`: GFM parsing (tables, task lists, strikethrough, autolink literals).
+- `marked`: GFM parsing (tables, task lists, strikethrough, autolink literals).
+- `decode-named-character-reference`: decode Markdown character references in text and URLs.
 - `chalk`: small, ESM‑only color/style helper.
 - `string-width`: correct visible width (emoji / wide chars).
 - `strip-ansi`: strip codes for width/wrapping.
@@ -65,7 +66,7 @@ Each theme entry holds simple SGR intents (bold/italic/fg color names). `inlineC
 
 ## Rendering Pipeline
 
-1. **Parse** via micromark with combined GFM extensions → AST events.
+1. **Parse** via Marked's GFM lexer → lightweight internal AST.
 2. **Build light IR** (nodes: paragraph, heading, list, listItem, taskItem, table, tableRow, tableCell, code, inline text/emph/strong/del/code/link).
 3. **Render** to ANSI:
    - Style map from theme to SGR codes.

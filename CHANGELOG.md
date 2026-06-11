@@ -2,6 +2,8 @@
 
 ## 0.3.1 - Unreleased
 
+- Replace the unified/micromark parser graph with Marked and use one TypeScript compiler, substantially reducing install size and package count.
+
 ## 0.3.0 (2026-06-10)
 
 - CLI: support `markdansi file.md` positional input files (#3, thanks @risenowrise).

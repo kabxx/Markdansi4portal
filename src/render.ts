@@ -8,7 +8,7 @@ import type {
   Paragraph,
   Root,
   Table,
-} from "mdast";
+} from "./ast.js";
 import sliceAnsi from "slice-ansi";
 import stringWidth from "string-width";
 import stripAnsi from "strip-ansi";
@@ -592,8 +592,9 @@ function renderInline(children: Paragraph["children"], ctx: RenderContext): stri
       case "break":
         out += HARD_BREAK;
         break;
-      default:
-        if ("value" in node && typeof node.value === "string") out += node.value;
+      case "html":
+        out += node.value;
+        break;
     }
   }
   return out;

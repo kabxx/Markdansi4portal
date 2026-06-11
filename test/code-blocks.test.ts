@@ -108,6 +108,15 @@ ${Array.from({ length: 12 }, (_, i) => `l${i + 1}`).join("\n")}
     expect(lines[4]).toBe(""); // final newline
   });
 
+  it("renders definitions without titles and decodes title references", () => {
+    expect(render("[foo]: https://example.com", { color: false }).trim()).toBe(
+      "[foo]: https://example.com",
+    );
+    expect(render('[foo]: https://example.com "A &amp; B"', { color: false }).trim()).toBe(
+      '[foo]: https://example.com "A & B"',
+    );
+  });
+
   it("collapses lists of code blocks into a single block", () => {
     const md = "- ```\n  first\n  ```\n- ```\n  second\n  ```";
     const out = render(md, { color: false, wrap: false });

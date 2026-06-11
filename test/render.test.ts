@@ -14,6 +14,11 @@ describe("inline formatting", () => {
     expect(out).toContain("Hello em strong code gone");
   });
 
+  it("decodes named and numeric character references", () => {
+    expect(strip("A &amp; B &#38; C &#x26; D", noColor).trim()).toBe("A & B & C & D");
+    expect(strip("&#128; &#xD800; &#x110000;", noColor).trim()).toBe("� � �");
+  });
+
   it("uses blockCode / inlineCode themes distinctly", () => {
     const ansi = render("`inline`\n\n```\nblock\n```", {
       color: true,
@@ -68,6 +73,10 @@ describe("inline formatting", () => {
   it("ignores inline HTML content safely", () => {
     const out = strip("<div>ignored</div>", { ...noColor });
     expect(out).toBe("");
+  });
+
+  it("preserves inline HTML text", () => {
+    expect(strip("a <span>b</span> c", noColor).trim()).toBe("a <span>b</span> c");
   });
 
   it("renders headings and horizontal rules", () => {
