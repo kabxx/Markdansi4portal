@@ -61,16 +61,16 @@
     "slice-ansi": "^9.0.0",
     "string-width": "^8.2.1",
     "strip-ansi": "^7.2.0",
-    "supports-hyperlinks": "^4.4.0"
+    "supports-hyperlinks": "^4.5.0"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
-    "@vitest/coverage-v8": "^4.1.5",
-    "oxfmt": "^0.47.0",
-    "oxlint": "^1.62.0",
-    "tsx": "^4.21.0",
+    "@types/node": "^26.0.0",
+    "@vitest/coverage-v8": "^4.1.9",
+    "oxfmt": "^0.56.0",
+    "oxlint": "^1.71.0",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.9"
   },
   "engines": {
     "node": ">=22"
