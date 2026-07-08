@@ -181,6 +181,25 @@ describe("tables", () => {
     expect(out).toContain(word);
   });
 
+  it("wraps long CJK cells when truncation is disabled", () => {
+    const text = "这是一段没有空格的超长中文单元格内容用来验证表格边框不会被撑破并且内容不会丢失";
+    const md = `
+| item | description |
+| --- | --- |
+| long | ${text} |
+`;
+    const out = strip(md, {
+      ...noColor,
+      width: 40,
+      wrap: true,
+      tableTruncate: false,
+    });
+
+    expect(out).toContain("丢失");
+    expect(out).not.toContain("…");
+    expectLinesWithinWidth(out, 40);
+  });
+
   it("respects table alignment markers from GFM", () => {
     const md = `
 | h1 | h2 |

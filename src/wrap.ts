@@ -10,11 +10,11 @@ export function visibleWidth(text: string): number {
 
 /**
  * Wrap a single paragraph string into lines respecting visible width.
- * Breaks only on spaces. Words longer than width overflow.
+ * Breaks on spaces and CJK character boundaries. Other words longer than width overflow.
  */
 export function wrapText(text: string, width: number, wrap: boolean): string[] {
   if (!wrap || width <= 0) return [text];
-  const words = text.split(/(\s+)/).filter((w) => w.length > 0);
+  const words = segmentWrapWords(text);
   const lines: string[] = [];
   let current = "";
   let currentWidth = 0;
@@ -62,6 +62,73 @@ export function wrapText(text: string, width: number, wrap: boolean): string[] {
   if (current !== "") lines.push(trimEndSpaces(current));
   if (lines.length === 0) lines.push("");
   return lines;
+}
+
+const CJK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+
+function segmentWrapWords(text: string): string[] {
+  const words: string[] = [];
+  let current = "";
+
+  const flush = () => {
+    if (current === "") return;
+    words.push(current);
+    current = "";
+  };
+
+  for (let index = 0; index < text.length; ) {
+    const rest = text.slice(index);
+    const ansi = readAnsiSgr(rest);
+    if (ansi) {
+      current += ansi;
+      index += ansi.length;
+      continue;
+    }
+
+    const char = Array.from(rest)[0] ?? "";
+    if (/^\s$/u.test(char)) {
+      flush();
+      let spaces = char;
+      index += char.length;
+
+      while (index < text.length) {
+        const next = Array.from(text.slice(index))[0] ?? "";
+        if (!/^\s$/u.test(next)) break;
+        spaces += next;
+        index += next.length;
+      }
+
+      words.push(spaces);
+      continue;
+    }
+
+    if (CJK_RE.test(char)) {
+      flush();
+      words.push(char);
+      index += char.length;
+      continue;
+    }
+
+    current += char;
+    index += char.length;
+  }
+
+  flush();
+  return words;
+}
+
+function readAnsiSgr(text: string): string | null {
+  if (text.charCodeAt(0) !== 0x1b || text[1] !== "[") return null;
+
+  let index = 2;
+  while (index < text.length) {
+    const char = text[index] ?? "";
+    if (char === "m") return text.slice(0, index + 1);
+    if (!/^[0-9;]$/.test(char)) return null;
+    index += 1;
+  }
+
+  return null;
 }
 
 export function wrapWithPrefix(text: string, width: number, wrap: boolean, prefix = ""): string[] {
