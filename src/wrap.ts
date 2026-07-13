@@ -1,5 +1,6 @@
 import stringWidth from "string-width";
 import stripAnsi from "strip-ansi";
+import sliceAnsi from "slice-ansi";
 
 /**
  * Visible width of a string, ignoring ANSI escape codes.
@@ -10,11 +11,23 @@ export function visibleWidth(text: string): number {
 
 /**
  * Wrap a single paragraph string into lines respecting visible width.
- * Breaks on spaces and CJK character boundaries. Other words longer than width overflow.
+ * Breaks on spaces and CJK character boundaries. Long words overflow unless
+ * hardWrapLongWords is enabled.
  */
-export function wrapText(text: string, width: number, wrap: boolean): string[] {
+export function wrapText(
+  text: string,
+  width: number,
+  wrap: boolean,
+  hardWrapLongWords = false,
+): string[] {
   if (!wrap || width <= 0) return [text];
-  const words = segmentWrapWords(text);
+  const words = segmentWrapWords(text).flatMap((word) => {
+    if (hardWrapLongWords && !/^\s+$/.test(word) && visibleWidth(word) > width) {
+      return splitLongWord(word, width);
+    }
+
+    return [word];
+  });
   const lines: string[] = [];
   let current = "";
   let currentWidth = 0;
@@ -62,6 +75,22 @@ export function wrapText(text: string, width: number, wrap: boolean): string[] {
   if (current !== "") lines.push(trimEndSpaces(current));
   if (lines.length === 0) lines.push("");
   return lines;
+}
+
+function splitLongWord(word: string, width: number): string[] {
+  const parts: string[] = [];
+  const totalWidth = visibleWidth(word);
+
+  for (let offset = 0; offset < totalWidth; ) {
+    const part = sliceAnsi(word, offset, offset + width);
+    const partWidth = visibleWidth(part);
+    if (partWidth === 0) break;
+
+    parts.push(part);
+    offset += partWidth;
+  }
+
+  return parts.length > 0 ? parts : [word];
 }
 
 const CJK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;

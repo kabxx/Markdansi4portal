@@ -715,6 +715,7 @@ function renderTable(node: Table, ctx: RenderContext): string[] {
         content,
         ctx.options.wrap ? target : Number.MAX_SAFE_INTEGER,
         ctx.options.wrap,
+        true,
       );
       return wrapped.map((l) => {
         const aligned = padCell(l, target, aligns[idx] ?? "left");

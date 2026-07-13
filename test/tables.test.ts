@@ -20,6 +20,14 @@ function lineContaining(output: string, text: string): string {
   return output.split("\n").find((line) => line.includes(text)) ?? "";
 }
 
+function tableColumnText(output: string, column: number): string {
+  return output
+    .split("\n")
+    .filter((line) => line.startsWith("│"))
+    .map((line) => line.split("│")[column]?.trim() ?? "")
+    .join("");
+}
+
 function occurrences(text: string, needle: string): number {
   return text.split(needle).length - 1;
 }
@@ -165,7 +173,7 @@ describe("tables", () => {
     expect(out).not.toContain("Provi…");
   });
 
-  it("allows long words in cells to overflow (no hard break)", () => {
+  it("hard-wraps long words in cells when truncation is disabled", () => {
     const word = "Supercalifragilistic";
     const md = `
 | h1 | h2 |
@@ -174,11 +182,31 @@ describe("tables", () => {
 `;
     const out = strip(md, {
       ...noColor,
-      width: 10,
+      width: 15,
       wrap: true,
       tableTruncate: false,
     });
-    expect(out).toContain(word);
+
+    expect(tableColumnText(out, 1)).toContain(word);
+    expectLinesWithinWidth(out, 15);
+  });
+
+  it("hard-wraps long identifiers without shifting table borders", () => {
+    const identifier = "buildRuntimeRecoveryPlan、createRuntimeFromAdapter";
+    const md = `
+| 难度 | 切入点 | 具体建议 |
+| --- | --- | --- |
+| 简单 | 增加注释 | ${identifier} |
+`;
+    const out = strip(md, {
+      ...noColor,
+      width: 40,
+      wrap: true,
+      tableTruncate: false,
+    });
+
+    expect(tableColumnText(out, 3)).toContain(identifier);
+    expectLinesWithinWidth(out, 40);
   });
 
   it("wraps long CJK cells when truncation is disabled", () => {
