@@ -28,6 +28,14 @@ function tableColumnText(output: string, column: number): string {
     .join("");
 }
 
+function tableColumnWidths(output: string): number[] {
+  const topBorder = output.split("\n").find((line) => line.startsWith("┌")) ?? "";
+  return topBorder
+    .slice(1, -1)
+    .split("┬")
+    .map((segment) => stringWidth(segment));
+}
+
 function occurrences(text: string, needle: string): number {
   return text.split(needle).length - 1;
 }
@@ -131,12 +139,11 @@ describe("tables", () => {
       wrap: true,
       tableTruncate: false,
     });
-    const lines = out
+    const bodyLines = out
       .trim()
       .split("\n")
-      .filter((l) => l.includes("│") || l.includes("|"));
-    // Expect at least header + body + borders; wrapped content should add extra line
-    expect(lines.length).toBeGreaterThan(3);
+      .filter((line) => line.startsWith("│") && !line.includes("h1"));
+    expect(bodyLines.length).toBeGreaterThan(1);
   });
 
   it("wraps cells without shifting columns into separate rows", () => {
@@ -160,6 +167,72 @@ describe("tables", () => {
     for (const line of bodyLines) {
       expect(line).toContain("a");
     }
+  });
+
+  it("keeps compact tables at their natural width", () => {
+    const md = `
+| key | value |
+| --- | --- |
+| a | b |
+`;
+    const out = strip(md, { ...noColor, width: 80, tableTruncate: false });
+
+    expect(stringWidth(out.trimEnd().split("\n")[0] ?? "")).toBeLessThan(80);
+    expect(tableColumnWidths(out)).toEqual([5, 7]);
+  });
+
+  it("gives unused terminal width to an oversized content column", () => {
+    const md = `
+| key | description |
+| --- | --- |
+| a | ${"longcontent".repeat(12)} |
+`;
+    const out = strip(md, { ...noColor, width: 60, tableTruncate: false });
+
+    expect(stringWidth(out.trimEnd().split("\n")[0] ?? "")).toBe(60);
+    expect(tableColumnWidths(out)).toEqual([5, 52]);
+    expectLinesWithinWidth(out, 60);
+  });
+
+  it("shares constrained width fairly between multiple long columns", () => {
+    const md = `
+| left | right |
+| --- | --- |
+| ${"leftvalue".repeat(10)} | ${"rightvalue".repeat(10)} |
+`;
+    const out = strip(md, { ...noColor, width: 60, tableTruncate: false });
+    const widths = tableColumnWidths(out);
+
+    expect(widths.reduce((total, width) => total + width, 0) + 3).toBe(60);
+    expect(Math.abs((widths[0] ?? 0) - (widths[1] ?? 0))).toBeLessThanOrEqual(1);
+    expectLinesWithinWidth(out, 60);
+  });
+
+  it("does not let one long column force short columns to grow", () => {
+    const md = `
+| notes | status |
+| --- | --- |
+| short | ok |
+| short | ok |
+| ${"exceptionallylongvalue".repeat(6)} | ok |
+`;
+    const out = strip(md, { ...noColor, width: 50, tableTruncate: false });
+    const widths = tableColumnWidths(out);
+
+    expect(widths).toEqual([39, 8]);
+    expectLinesWithinWidth(out, 50);
+  });
+
+  it("reclaims space left unused after wrapping at word boundaries", () => {
+    const md = `
+| words | identifier |
+| --- | --- |
+| sometest sometest | ${"identifier".repeat(8)} |
+`;
+    const out = strip(md, { ...noColor, width: 30, tableTruncate: false });
+
+    expect(tableColumnWidths(out)).toEqual([10, 17]);
+    expectLinesWithinWidth(out, 30);
   });
 
   it("does not truncate header cells when content fits", () => {
@@ -207,6 +280,33 @@ describe("tables", () => {
 
     expect(tableColumnText(out, 3)).toContain(identifier);
     expectLinesWithinWidth(out, 40);
+  });
+
+  it("closes inline code color before wrapped table borders", () => {
+    const md = `
+| 问题 | 具体表现 |
+| --- | --- |
+| 安全漏洞 | 没有命令过滤，包括 \`rm -rf /\`、\`format C:\` 等操作 |
+`;
+    const out = render(md, {
+      color: true,
+      hyperlinks: false,
+      width: 45,
+      wrap: true,
+      tableTruncate: false,
+    });
+    const bodyLines = out
+      .split("\n")
+      .filter((line) => line.startsWith("│") && !line.includes("问题"));
+
+    expect(bodyLines.length).toBeGreaterThan(1);
+    for (const line of bodyLines) {
+      const borderIndex = line.lastIndexOf("│");
+      const colorIndex = line.lastIndexOf("\u001B[36m", borderIndex);
+      if (colorIndex !== -1) {
+        expect(line.lastIndexOf("\u001B[39m", borderIndex)).toBeGreaterThan(colorIndex);
+      }
+    }
   });
 
   it("wraps long CJK cells when truncation is disabled", () => {

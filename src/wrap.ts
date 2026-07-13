@@ -74,7 +74,98 @@ export function wrapText(
 
   if (current !== "") lines.push(trimEndSpaces(current));
   if (lines.length === 0) lines.push("");
-  return lines;
+  return balanceAnsiStyles(lines);
+}
+
+type AnsiStyle =
+  | "foreground"
+  | "background"
+  | "bold"
+  | "dim"
+  | "italic"
+  | "underline"
+  | "blink"
+  | "inverse"
+  | "hidden"
+  | "strike";
+
+const ANSI_STYLE_CLOSE: Record<AnsiStyle, string> = {
+  foreground: "\u001B[39m",
+  background: "\u001B[49m",
+  bold: "\u001B[22m",
+  dim: "\u001B[22m",
+  italic: "\u001B[23m",
+  underline: "\u001B[24m",
+  blink: "\u001B[25m",
+  inverse: "\u001B[27m",
+  hidden: "\u001B[28m",
+  strike: "\u001B[29m",
+};
+
+function balanceAnsiStyles(lines: string[]): string[] {
+  const active = new Map<AnsiStyle, string>();
+
+  return lines.map((line) => {
+    const prefix = [...active.values()].join("");
+    for (let index = 0; index < line.length; ) {
+      const ansi = readAnsiSgr(line.slice(index));
+      if (ansi) {
+        updateAnsiStyles(active, ansi);
+        index += ansi.length;
+      } else {
+        index += (line.codePointAt(index) ?? 0) > 0xffff ? 2 : 1;
+      }
+    }
+
+    const suffix = [...active.keys()]
+      .reverse()
+      .map((style) => ANSI_STYLE_CLOSE[style])
+      .join("");
+    return `${prefix}${line}${suffix}`;
+  });
+}
+
+function updateAnsiStyles(active: Map<AnsiStyle, string>, ansi: string) {
+  const params = ansi
+    .slice(2, -1)
+    .split(";")
+    .map((value) => (value === "" ? 0 : Number(value)));
+  const codes = params.length > 0 ? params : [0];
+
+  for (let index = 0; index < codes.length; index += 1) {
+    const code = codes[index] ?? 0;
+    if (code === 0) active.clear();
+    else if (code === 1) active.set("bold", ansi);
+    else if (code === 2) active.set("dim", ansi);
+    else if (code === 3) active.set("italic", ansi);
+    else if (code === 4) active.set("underline", ansi);
+    else if (code === 5 || code === 6) active.set("blink", ansi);
+    else if (code === 7) active.set("inverse", ansi);
+    else if (code === 8) active.set("hidden", ansi);
+    else if (code === 9) active.set("strike", ansi);
+    else if (code === 22) {
+      active.delete("bold");
+      active.delete("dim");
+    } else if (code === 23) active.delete("italic");
+    else if (code === 24) active.delete("underline");
+    else if (code === 25) active.delete("blink");
+    else if (code === 27) active.delete("inverse");
+    else if (code === 28) active.delete("hidden");
+    else if (code === 29) active.delete("strike");
+    else if (code === 39) active.delete("foreground");
+    else if (code === 49) active.delete("background");
+    else if (code === 38) {
+      active.set("foreground", ansi);
+      index += codes[index + 1] === 2 ? 4 : codes[index + 1] === 5 ? 2 : 0;
+    } else if (code === 48) {
+      active.set("background", ansi);
+      index += codes[index + 1] === 2 ? 4 : codes[index + 1] === 5 ? 2 : 0;
+    } else if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) {
+      active.set("foreground", ansi);
+    } else if ((code >= 40 && code <= 47) || (code >= 100 && code <= 107)) {
+      active.set("background", ansi);
+    }
+  }
 }
 
 function splitLongWord(word: string, width: number): string[] {

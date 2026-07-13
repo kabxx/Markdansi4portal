@@ -283,7 +283,6 @@ function tagDiffBlock(node: Root["children"][number]): Root["children"][number] 
 }
 
 const HR_WIDTH = 40;
-const MAX_COL = 40;
 const TABLE_BOX = {
   unicode: {
     topLeft: "┌",
@@ -665,6 +664,103 @@ function renderLink(node: Link, ctx: RenderContext): string {
   return ctx.style(label, ctx.options.theme.link);
 }
 
+function calculateTableWidths(
+  cells: string[][],
+  maxWidth: number | undefined,
+  wrap: boolean,
+  pad: number,
+  minContent: number,
+): number[] {
+  // Freeze columns that fit, share the rest, then reclaim space after a trial wrap.
+  const colCount = Math.max(...cells.map((row) => row.length));
+  const paddingWidth = pad * 2;
+  const minColWidth = Math.max(1, paddingWidth + minContent);
+  const naturalWidths = Array.from({ length: colCount }, () => minColWidth);
+
+  for (const row of cells) {
+    row.forEach((cell, index) => {
+      naturalWidths[index] = Math.max(
+        naturalWidths[index] ?? minColWidth,
+        visibleWidth(cell) + paddingWidth,
+      );
+    });
+  }
+
+  if (!wrap || maxWidth === undefined) return naturalWidths;
+
+  const borderWidth = colCount + 1;
+  const columnBudget = Math.max(0, maxWidth - borderWidth);
+  if (naturalWidths.reduce((total, width) => total + width, 0) <= columnBudget) {
+    return naturalWidths;
+  }
+
+  if (columnBudget < minColWidth * colCount) {
+    return Array.from({ length: colCount }, () => minColWidth);
+  }
+
+  const widths = Array.from({ length: colCount }, () => 0);
+  let remainingWidth = columnBudget;
+  let remainingColumns = Array.from({ length: colCount }, (_, index) => index);
+
+  while (remainingColumns.length > 0) {
+    const averageWidth = Math.floor(remainingWidth / remainingColumns.length);
+    const fittingColumns = remainingColumns.filter(
+      (index) => (naturalWidths[index] ?? minColWidth) <= averageWidth,
+    );
+
+    if (fittingColumns.length > 0) {
+      const fitting = new Set(fittingColumns);
+      for (const index of fittingColumns) {
+        const width = naturalWidths[index] ?? minColWidth;
+        widths[index] = width;
+        remainingWidth -= width;
+      }
+      remainingColumns = remainingColumns.filter((index) => !fitting.has(index));
+      continue;
+    }
+
+    const baseWidth = Math.floor(remainingWidth / remainingColumns.length);
+    let excess = remainingWidth - baseWidth * remainingColumns.length;
+    const proposedWidths = new Map<number, number>();
+    for (const index of remainingColumns) {
+      proposedWidths.set(index, baseWidth + (excess-- > 0 ? 1 : 0));
+    }
+
+    const reclaimable: Array<{ index: number; width: number }> = [];
+    for (const index of remainingColumns) {
+      const proposedWidth = proposedWidths.get(index) ?? minColWidth;
+      const target = Math.max(minContent, proposedWidth - paddingWidth);
+      let longestWrappedLine = 0;
+
+      for (const row of cells) {
+        const cell = row[index] ?? "";
+        for (const line of wrapText(cell, target, true, true)) {
+          longestWrappedLine = Math.max(longestWrappedLine, visibleWidth(line));
+        }
+      }
+
+      const wrappedWidth = Math.max(minColWidth, longestWrappedLine + paddingWidth);
+      if (proposedWidth - wrappedWidth >= 3) {
+        reclaimable.push({ index, width: wrappedWidth });
+      }
+    }
+
+    if (reclaimable.length === 0) {
+      for (const [index, width] of proposedWidths) widths[index] = width;
+      break;
+    }
+
+    const reclaimed = new Set(reclaimable.map(({ index }) => index));
+    for (const { index, width } of reclaimable) {
+      widths[index] = width;
+      remainingWidth -= width;
+    }
+    remainingColumns = remainingColumns.filter((index) => !reclaimed.has(index));
+  }
+
+  return widths;
+}
+
 function renderTable(node: Table, ctx: RenderContext): string[] {
   const header = node.children[0];
   if (!header) return [];
@@ -672,37 +768,12 @@ function renderTable(node: Table, ctx: RenderContext): string[] {
   const cells = [header, ...rows].map((row) =>
     row.children.map((cell) => renderInline(cell.children, ctx)),
   );
-  const colCount = Math.max(...cells.map((r) => r.length));
-  const widths: number[] = Array.from({ length: colCount }, () => 1);
   const aligns = node.align || [];
   const pad = ctx.options.tablePadding;
   const padStr = " ".repeat(Math.max(0, pad));
   const minContent = Math.max(1, ctx.options.tableEllipsis.length + 1);
-  // ensure we always have room for at least one visible char + ellipsis + padding
   const minColWidth = Math.max(1, pad * 2 + minContent);
-
-  cells.forEach((row: string[]) => {
-    row.forEach((cell: string, idx: number) => {
-      const padded = `${padStr}${cell}${padStr}`;
-      // Cap each column to MAX_COL but keep at least 1
-      widths[idx] = Math.max(widths[idx] ?? 1, Math.min(MAX_COL, visibleWidth(padded)));
-    });
-  });
-
-  const totalWidth = widths.reduce((a, b) => a + b, 0) + 3 * colCount + 1;
-  if (ctx.options.wrap && ctx.options.width && totalWidth > ctx.options.width) {
-    // Shrink widest columns until the table fits; allow overflow if already at minima
-    let over = totalWidth - ctx.options.width;
-    while (over > 0) {
-      const i = widths.indexOf(Math.max(...widths));
-      if ((widths[i] ?? minColWidth) <= minColWidth) break;
-      widths[i] = (widths[i] ?? minColWidth) - 1;
-      over -= 1;
-    }
-  }
-  for (let i = 0; i < widths.length; i += 1) {
-    if ((widths[i] ?? minColWidth) < minColWidth) widths[i] = minColWidth;
-  }
+  const widths = calculateTableWidths(cells, ctx.options.width, ctx.options.wrap, pad, minContent);
 
   const renderRow = (row: string[], isHeader = false) => {
     const linesPerCol: string[][] = row.map((cell: string, idx: number) => {
