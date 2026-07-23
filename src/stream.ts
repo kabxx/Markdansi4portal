@@ -84,8 +84,7 @@ function looksLikeTableRow(line: string): boolean {
 }
 
 function normalizeRenderedFragment(rendered: string): string {
-  // Markdansi intentionally prefixes some blocks (e.g. headings) with a newline when rendering
-  // whole documents. For streaming fragments, strip leading newlines to avoid double spacing.
+  // Strip any renderer-provided boundary newlines so fragment spacing stays streamer-owned.
   const trimmedStart = rendered.replace(/^\n+/, "");
   // For fragment streaming, normalize to a single trailing newline so spacing is controlled
   // by the streamer (blank-line collapsing) rather than renderer block heuristics.

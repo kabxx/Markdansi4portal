@@ -320,7 +320,7 @@ export function render(markdown: string, userOptions: RenderOptions = {}): strin
   const style = createStyler({ color: options.color });
   const tree = normalizeNodes(parse(dedent(markdown)));
   const ctx: RenderContext = { options, style };
-  const body = renderChildren(tree.children, ctx, 0, true).join("");
+  const body = renderChildren(tree.children, ctx, 0).join("");
   return options.color ? body : stripAnsi(body);
 }
 
@@ -331,12 +331,7 @@ export function createRenderer(options?: RenderOptions) {
   return (md: string) => render(md, options);
 }
 
-function renderChildren(
-  children: Root["children"],
-  ctx: RenderContext,
-  indentLevel = 0,
-  isTightList = false,
-): string[] {
+function renderChildren(children: Root["children"], ctx: RenderContext, indentLevel = 0): string[] {
   const out: string[][] = [];
   for (let i = 0; i < children.length; i += 1) {
     const node = children[i];
@@ -352,11 +347,11 @@ function renderChildren(
       if (langMatch && next && next.type === "code" && !next.lang) {
         (next as Code).lang = langMatch[1];
         i += 1; // skip label paragraph, render the code next
-        out.push(renderNode(next, ctx, indentLevel, isTightList));
+        out.push(renderNode(next, ctx, indentLevel));
         continue;
       }
     }
-    out.push(renderNode(node, ctx, indentLevel, isTightList));
+    out.push(renderNode(node, ctx, indentLevel));
   }
   return out.flat();
 }
@@ -365,7 +360,6 @@ function renderNode(
   node: Root["children"][number],
   ctx: RenderContext,
   indentLevel: number,
-  isTightList: boolean,
 ): string[] {
   switch (node.type) {
     case "paragraph":
@@ -379,7 +373,7 @@ function renderNode(
     case "list":
       return renderList(node, ctx, indentLevel);
     case "listItem":
-      return renderListItem(node, ctx, indentLevel, isTightList);
+      return renderListItem(node, ctx, indentLevel);
     case "code":
       return renderCodeBlock(node, ctx);
     case "table":
@@ -399,9 +393,6 @@ function renderParagraph(node: Paragraph, ctx: RenderContext, indentLevel: numbe
   const defPattern = /^\[[^\]]+]:\s+\S/;
   let inDefinitions = false;
   for (const line of rawLines) {
-    if (defPattern.test(line) && normalized.length > 0 && normalized.at(-1) !== "") {
-      normalized.push(""); // insert blank line before footer-style definitions
-    }
     if (defPattern.test(line)) {
       inDefinitions = true;
       normalized.push(line);
@@ -423,7 +414,7 @@ function renderParagraph(node: Paragraph, ctx: RenderContext, indentLevel: numbe
 function renderHeading(node: Heading, ctx: RenderContext): string[] {
   const text = renderInline(node.children, ctx);
   const styled = ctx.style(text, ctx.options.theme.heading);
-  return [`\n${styled}\n`];
+  return [`${styled}\n`];
 }
 
 function renderHr(ctx: RenderContext): string[] {
@@ -443,9 +434,8 @@ function renderBlockquote(node: Blockquote, ctx: RenderContext, indentLevel: num
 }
 
 function renderList(node: List, ctx: RenderContext, indentLevel: number): string[] {
-  const tight = node.spread === false;
   const items = node.children.flatMap((item: ListItem, idx: number) =>
-    renderListItem(item, ctx, indentLevel, tight, Boolean(node.ordered), node.start ?? 1, idx),
+    renderListItem(item, ctx, indentLevel, Boolean(node.ordered), node.start ?? 1, idx),
   );
   return items;
 }
@@ -454,14 +444,13 @@ function renderListItem(
   node: ListItem,
   ctx: RenderContext,
   indentLevel: number,
-  tight: boolean,
   ordered = false,
   start = 1,
   idx = 0,
 ): string[] {
   const marker = ordered ? `${start + idx}.` : "-";
   const markerStyled = ctx.style(marker, ctx.options.theme.listMarker);
-  const content = renderChildren(node.children, ctx, indentLevel + 1, tight)
+  const content = renderChildren(node.children, ctx, indentLevel + 1)
     .join("")
     .trimEnd()
     .split("\n");
@@ -488,7 +477,6 @@ function renderListItem(
           )}`;
     lines.push(prefix + clean);
   });
-  if (!tight) lines.push("");
   return lines.map((l) => `${l}\n`);
 }
 
@@ -498,8 +486,7 @@ function renderDefinition(
 ): string[] {
   const title = node.title ? ` "${node.title}"` : "";
   const line = `[${node.identifier}]: ${node.url ?? ""}${title}`;
-  // Insert a leading blank line to visually separate footers from body.
-  return [`\n${line}\n`];
+  return [`${line}\n`];
 }
 
 function renderCodeBlock(node: Code, ctx: RenderContext): string[] {
@@ -527,7 +514,7 @@ function renderCodeBlock(node: Code, ctx: RenderContext): string[] {
   });
 
   if (!useBox) {
-    return [`${contentLines.join("\n")}\n\n`];
+    return [`${contentLines.join("\n")}\n`];
   }
 
   // Boxed block
@@ -560,7 +547,7 @@ function renderCodeBlock(node: Code, ctx: RenderContext): string[] {
     return `${left}${ln}${" ".repeat(pad)}${right}`;
   });
 
-  return [`${top}\n${boxLines.join("\n")}\n${bottom}\n\n`];
+  return [`${top}\n${boxLines.join("\n")}\n${bottom}\n`];
 }
 
 function renderInline(children: Paragraph["children"], ctx: RenderContext): string {
@@ -819,7 +806,7 @@ function renderTable(node: Table, ctx: RenderContext): string[] {
 
   if (ctx.options.tableBorder === "none") {
     const lines = [...headerRows, ...bodyRows].map((row) => row.join(" | ")).join("\n");
-    return [`${lines}\n\n`];
+    return [`${lines}\n`];
   }
 
   const box = TABLE_BOX[ctx.options.tableBorder] || TABLE_BOX.unicode;
@@ -834,7 +821,7 @@ function renderTable(node: Table, ctx: RenderContext): string[] {
     rowsArr.map((r) => `${box.vSep}${r.map((c) => c).join(box.vSep)}${box.vSep}\n`).join("");
 
   const dense = ctx.options.tableDense;
-  const out = [top, renderFlat(headerRows), dense ? "" : mid, renderFlat(bodyRows), bottom, "\n"];
+  const out = [top, renderFlat(headerRows), dense ? "" : mid, renderFlat(bodyRows), bottom];
   return out;
 }
 

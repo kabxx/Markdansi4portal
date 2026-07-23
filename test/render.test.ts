@@ -159,9 +159,85 @@ describe("lists and tasks", () => {
     expect(out).not.toContain("\n\n");
   });
 
-  it("splits loose lists with blank line", () => {
+  it("renders loose lists without blank rows", () => {
     const out = strip("- item 1\n\n- item 2", noColor);
-    expect(out.split("\n").filter((l) => l === "").length).toBeGreaterThan(0);
+    expect(out.split("\n")).toEqual(["- item 1", "- item 2", ""]);
+  });
+
+  it("renders nested loose lists without blank rows", () => {
+    const md = ["- parent", "", "  - child one", "", "  - child two", "", "- sibling"].join("\n");
+
+    expect(strip(md, noColor).split("\n")).toEqual([
+      "- parent",
+      "  - child one",
+      "  - child two",
+      "- sibling",
+      "",
+    ]);
+  });
+});
+
+describe("block spacing", () => {
+  it("renders adjacent blocks without inserted blank rows", () => {
+    const md = [
+      "# Heading",
+      "",
+      "Paragraph",
+      "",
+      "---",
+      "",
+      "> Quote",
+      "",
+      "- first",
+      "",
+      "- second",
+      "",
+      "```",
+      "code",
+      "```",
+      "",
+      "| H |",
+      "| --- |",
+      "| V |",
+    ].join("\n");
+
+    const out = strip(md, { ...noColor, codeBox: false });
+
+    expect(out.split("\n")).toEqual([
+      "Heading",
+      "Paragraph",
+      "—".repeat(40),
+      "│ Quote",
+      "- first",
+      "- second",
+      "code",
+      "┌────┐",
+      "│ H  │",
+      "├────┤",
+      "│ V  │",
+      "└────┘",
+      "",
+    ]);
+  });
+
+  it("preserves blank lines inside code blocks", () => {
+    const out = strip("```\nalpha\n\nbeta\n```", {
+      ...noColor,
+      codeBox: false,
+    });
+
+    expect(out).toBe("alpha\n\nbeta\n");
+  });
+
+  it("renders borderless tables with a single trailing newline", () => {
+    const out = strip("| H |\n| --- |\n| V |", {
+      ...noColor,
+      tableBorder: "none",
+    });
+
+    expect(out.endsWith("\n")).toBe(true);
+    expect(out.endsWith("\n\n")).toBe(false);
+    expect(out.trimEnd().split("\n")).toHaveLength(2);
   });
 });
 

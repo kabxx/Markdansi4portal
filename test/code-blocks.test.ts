@@ -49,9 +49,10 @@ ${Array.from({ length: 12 }, (_, i) => `l${i + 1}`).join("\n")}
   it("renders language label in code box header (multi-line only)", () => {
     const md = "```bash\nthis line is definitely longer than the label\nand still flows\n```";
     const out = render(md, { color: true, wrap: false });
-    const firstLineRaw = out.split("\n")[0];
-    const bodyLine = out.split("\n")[1];
-    const bottomLine = out.split("\n")[out.split("\n").length - 3];
+    const lines = out.trimEnd().split("\n");
+    const firstLineRaw = lines[0];
+    const bodyLine = lines[1];
+    const bottomLine = lines.at(-1);
     const firstLine = stripAnsi(firstLineRaw);
     expect(firstLine.startsWith("┌")).toBe(true);
     expect(firstLine).toContain("[bash]");
@@ -101,11 +102,7 @@ ${Array.from({ length: 12 }, (_, i) => `l${i + 1}`).join("\n")}
     const md = `Body line.\n[1]: https://example.com "Title"\nNext.`;
     const out = render(md, { color: false, wrap: true });
     const lines = out.split("\n");
-    expect(lines[0]).toBe("Body line.");
-    expect(lines[1]).toBe(""); // blank line before definition
-    expect(lines[2]).toBe('[1]: https://example.com "Title"');
-    expect(lines[3]).toBe("Next.");
-    expect(lines[4]).toBe(""); // final newline
+    expect(lines).toEqual(["Body line.", '[1]: https://example.com "Title"', "Next.", ""]);
   });
 
   it("renders definitions without titles and decodes title references", () => {

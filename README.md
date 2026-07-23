@@ -158,7 +158,7 @@ console.log(highlighted("```ts\nconst x: number = 1\n```\n```swift\nlet x = 1\n`
 - Code blocks wrap to the render width by default; disable with `codeWrap=false`. If `lang` is present, a faint `[lang]` label is shown and boxes use unicode borders.
 - Link/reference definitions that spill their titles onto indented lines are merged back into one line so copied notes don’t turn into boxed code.
 - Tables use unicode borders by default, include padding, respect GFM alignment, and truncate long cells with `…` so layouts stay tidy. Turn off truncation with `tableTruncate=false`.
-- Tight vs loose lists follow GFM; task items render `[ ]` / `[x]`.
+- Lists render without blank separator rows for compact terminal output; task items render `[ ]` / `[x]`.
 
 See [`docs/spec.md`](docs/spec.md) for full behavior details.
 
